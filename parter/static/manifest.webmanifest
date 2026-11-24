@@ -1,0 +1,19 @@
+{
+  "name": "Les Loisirs — Театр и Выставки",
+  "short_name": "Les Loisirs",
+  "description": "Личный мобильный консьерж билетов в театры и на выставки Москвы",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0C0B0E",
+  "theme_color": "#0C0B0E",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

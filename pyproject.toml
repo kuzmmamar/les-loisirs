@@ -1,0 +1,21 @@
+[project]
+name = "parter"
+version = "0.1.0"
+description = "Мобильный театральный и выставочный агент (Москва)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
+    "beautifulsoup4>=4.12.3",
+    "python-multipart>=0.0.18",
+    "pydantic>=2.10.0",
+    "cryptography>=44.0.0",
+    "pillow>=11.0.0",
+    "openai>=1.55.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
