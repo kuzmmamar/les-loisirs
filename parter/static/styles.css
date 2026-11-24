@@ -387,6 +387,15 @@ html, body {
 .dates-dd-trigger.away-date .dd-sub {
   color: #E2A8B8;
 }
+.dates-dd-trigger .dd-away {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #F4C2D0;
+}
 .date-price-under {
   font-size: 10.5px;
   font-weight: 600;

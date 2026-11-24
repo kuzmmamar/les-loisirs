@@ -654,12 +654,17 @@ function renderFeedSwipeCard(it) {
       `;
     } else {
       const secondLine = `${secondEv.weekday}, ${secondEv.label} · ${secondEv.event_time} ▾`;
+      const pinkFrame = Boolean(firstEv.other_away_label && secondEv.other_away_label);
+      const awayLine = pinkFrame
+        ? [...new Set([firstEv.other_away_label, secondEv.other_away_label])].join(" · ")
+        : "";
       datesCornerHtml = `
         <div class="dates-dd-wrap">
-          <button type="button" class="dates-dd-trigger ${firstEv.other_away_label && secondEv.other_away_label ? "away-date" : ""}"
+          <button type="button" class="dates-dd-trigger ${pinkFrame ? "away-date" : ""}"
             onclick="toggleDatesDropdown('${it.slug}', event)">
             <span class="dd-main">${firstLine}</span>
             <span class="dd-sub">${secondLine}</span>
+            ${awayLine ? `<span class="dd-away">${awayLine}</span>` : ""}
           </button>
           ${firstPriceStr ? `<div class="date-price-under">${firstPriceStr}</div>` : ""}
           <div id="dates-dd-${it.slug}" class="dates-dd-menu hidden">

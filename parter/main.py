@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
+import secrets
 import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -9,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -22,6 +24,7 @@ from parter.checkout import (
     list_wallet_tickets,
 )
 from parter.db import (
+    DATA_DIR,
     SCREENSHOTS_DIR,
     TICKETS_DIR,
     add_away_period,
@@ -58,6 +61,37 @@ from parter.screenshots import ingest_incoming_item, list_screenshots, poll_phot
 from parter.tg_bot import configure_telegram_bot, telegram_polling_loop
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+ACCESS_KEY_PATH = DATA_DIR / "access.key"
+_LOCK_HTML = """<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Les Loisirs</title></head>
+<body style="margin:0;background:#0c0b0e;color:#f4efe6;font:16px/1.4 -apple-system,sans-serif">
+<main style="max-width:430px;margin:0 auto;padding:28px 20px">
+<h1 style="font-size:22px;font-weight:600">Les Loisirs</h1>
+<p>Откройте полную ссылку приложения. Эта страница без неё ничего не показывает.</p>
+</main></body></html>"""
+
+
+def _access_key() -> str:
+    ensure_dirs()
+    if not ACCESS_KEY_PATH.exists():
+        ACCESS_KEY_PATH.write_text(secrets.token_urlsafe(18), encoding="utf-8")
+        ACCESS_KEY_PATH.chmod(0o600)
+    return ACCESS_KEY_PATH.read_text(encoding="utf-8").strip()
+
+
+def _same(left: str, right: str) -> bool:
+    if not left or len(left) != len(right):
+        return False
+    return secrets.compare_digest(left, right)
+
+
+def _direct_lan(host: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_private and not ip.is_loopback
 
 
 async def background_loops() -> None:
@@ -84,6 +118,7 @@ async def background_loops() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_dirs()
+    _access_key()
     init_db()
     scan_task = asyncio.create_task(background_loops())
     tg_task = asyncio.create_task(telegram_polling_loop())
@@ -108,6 +143,39 @@ async def disable_html_and_static_cache(request: Request, call_next: Any) -> Any
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    return response
+
+
+@app.middleware("http")
+async def require_remote_access(request: Request, call_next: Any) -> Any:
+    client = request.client.host if request.client else ""
+    if _direct_lan(client):
+        return await call_next(request)
+    key = _access_key()
+    provided = request.query_params.get("k", "")
+    ok = (
+        _same(provided, key)
+        or _same(request.cookies.get("parter_access", ""), key)
+        or _same(request.headers.get("x-parter-key", ""), key)
+    )
+    if not ok:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "Нужна ссылка доступа"}, status_code=401)
+        return HTMLResponse(_LOCK_HTML, status_code=401)
+    if request.method == "GET" and _same(provided, key) and request.url.path in ("/", ""):
+        response = RedirectResponse("/", status_code=302)
+    else:
+        response = await call_next(request)
+    if _same(provided, key):
+        response.set_cookie(
+            "parter_access",
+            key,
+            max_age=60 * 60 * 24 * 400,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax",
+        )
     return response
 
 
