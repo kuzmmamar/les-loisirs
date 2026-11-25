@@ -379,6 +379,11 @@ def init_db() -> None:
             ("theatre_site", "https://teatrcdr.ru", "Центр драматургии и режиссуры — ЦДР (teatrcdr.ru)"),
             ("theatre_site", "https://tabakov.ru", "Театр Олега Табакова (tabakov.ru)"),
             ("theatre_site", "https://mikhalkov12.ru", "Мастерская «12» (mikhalkov12.ru)"),
+            ("theatre_site", "https://www.mariinsky.ru", "Мариинский театр (гастроли в Москве)"),
+            ("theatre_site", "https://www.bdt.spb.ru", "БДТ им. Товстоногова (гастроли в Москве)"),
+            ("theatre_site", "https://www.eifmanballet.com", "Театр балета Бориса Эйфмана"),
+            ("theatre_site", "https://www.zaryadye-hall.com", "Концертный зал «Зарядье» (офиц. афиша)"),
+            ("theatre_site", "https://www.kremlinpalace.org", "Государственный Кремлёвский дворец (офиц. касса)"),
             ("telegram", "@o3epotheatre", "Telegram Театра «Озеро» (дропы билетов)"),
             ("telegram", "@bolshoi_theatre", "Telegram Большого театра (график стартов продаж)"),
             ("telegram", "@stanmus", "Telegram МАМТ (премьеры и старты продаж)"),
@@ -611,6 +616,22 @@ def init_db() -> None:
                 )
             conn.execute(
                 "INSERT OR REPLACE INTO settings (key, value) VALUES ('seeded_klouny_and_creators_v1', '1')"
+            )
+
+        seeded_sher = conn.execute(
+            "SELECT value FROM settings WHERE key = 'seeded_shereshevsky_v1'"
+        ).fetchone()
+        if not seeded_sher:
+            for p_name in ("А", "+1"):
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO tracked_creators (person_name, name, role, source_note, created_at)
+                    VALUES (?, 'Пётр Шерешевский', 'Режиссёр', 'Лайк', ?)
+                    """,
+                    (p_name, now),
+                )
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('seeded_shereshevsky_v1', '1')"
             )
 
 

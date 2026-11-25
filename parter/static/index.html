@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-build="">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -8,9 +8,22 @@
   <meta name="apple-mobile-web-app-title" content="Les Loisirs" />
   <meta name="theme-color" content="#0C0B0E" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=58" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=59" />
   <title>Les Loisirs</title>
-  <link rel="stylesheet" href="/static/styles.css?v=57" />
+  <script>
+    (function () {
+      var here = document.documentElement.getAttribute("data-build") || "";
+      fetch("/api/app-version", { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.build || !here || String(d.build) === here) return;
+          if (location.search.indexOf("v=" + d.build) !== -1) return;
+          location.replace("/?v=" + encodeURIComponent(d.build));
+        })
+        .catch(function () {});
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=60" />
 </head>
 <body>
   <div class="phone-shell">
@@ -71,6 +84,6 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/static/app.js?v=57"></script>
+  <script src="/static/app.js?v=61"></script>
 </body>
 </html>

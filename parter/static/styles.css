@@ -255,6 +255,30 @@ html, body {
   color: var(--gold);
   border-color: rgba(212, 175, 106, 0.5);
 }
+.manual-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.manual-add-form .input-field {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 16px;
+}
+.manual-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.manual-add-row .input-field,
+.manual-add-row .btn-primary {
+  flex: 1;
+  min-height: 44px;
+}
+.manual-add-form > .btn-primary {
+  width: 100%;
+  min-height: 44px;
+}
 .director-select {
   margin-left: auto;
   min-width: 0;

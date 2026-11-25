@@ -46,6 +46,11 @@ DIRECT_THEATER_DOMAINS = {
     "teatrcdr.ru",
     "tabakov.ru",
     "mikhalkov12.ru",
+    "zaryadye-hall.com",
+    "kremlinpalace.org",
+    "mariinsky.ru",
+    "bdt.spb.ru",
+    "eifmanballet.com",
 }
 
 OFFICIAL_PARTNER_DOMAINS = {

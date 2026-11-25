@@ -184,9 +184,30 @@ app.mount("/media/screenshots", StaticFiles(directory=str(SCREENSHOTS_DIR)), nam
 app.mount("/media/tickets", StaticFiles(directory=str(TICKETS_DIR)), name="tickets")
 
 
+def _app_build() -> str:
+    files = (
+        STATIC_DIR / "index.html",
+        STATIC_DIR / "app.js",
+        STATIC_DIR / "styles.css",
+        STATIC_DIR / "sw.js",
+    )
+    stamp = 0
+    for path in files:
+        if path.exists():
+            stamp = max(stamp, int(path.stat().st_mtime))
+    return str(stamp)
+
+
+@app.get("/api/app-version")
+async def api_app_version() -> dict[str, str]:
+    return {"build": _app_build()}
+
+
 @app.get("/")
-async def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+async def index() -> HTMLResponse:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace('data-build=""', f'data-build="{_app_build()}"', 1)
+    return HTMLResponse(html)
 
 
 @app.get("/manifest.webmanifest")

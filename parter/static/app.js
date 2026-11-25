@@ -31,7 +31,15 @@ const awayCalState = {
 };
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+  navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then((reg) => {
+    reg.update().catch(() => {});
+  }).catch(() => {});
 }
 
 function fmtRub(n) {
@@ -1359,39 +1367,17 @@ function bindSwipePhysics() {
 }
 
 window.triggerCardDecision = async (slug, status, dir) => {
-  const card = document.getElementById(`prod-card-${slug}`);
-  if (card) {
-    card.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
-    if (dir > 0) card.style.transform = "translateX(380px) rotate(10deg)";
-    else if (dir < 0) card.style.transform = "translateX(-380px) rotate(-10deg)";
-    else card.style.transform = "scale(0.94)";
-    card.style.opacity = "0";
-    await new Promise((r) => setTimeout(r, 170));
-  }
+  const swipedProd = ((state.data && state.data.repertoire) || []).find((p) => p.slug === slug);
+  if (swipedProd) swipedProd.status = status;
 
   if (!state.swipeHistoryByPerson[state.activePerson]) {
     state.swipeHistoryByPerson[state.activePerson] = [];
   }
   state.swipeHistoryByPerson[state.activePerson].push(slug);
 
-  const swipedProd = (state.data && state.data.repertoire || []).find((p) => p.slug === slug);
-
-  await fetch(`/api/productions/${slug}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, person_name: state.activePerson }),
-  });
-
-  const res = await fetch(`/api/state?person=${encodeURIComponent(state.activePerson)}`);
-  state.data = await res.json();
-
-  const remaining = (state.data.repertoire || []).filter((p) => p.status === "inbox").length;
-  if (state.repFilter === "inbox" && remaining === 0) {
-    showToast("Все спектакли разобраны — открываю ваше расписание!");
-    switchTab("week");
-  } else {
-    renderAll();
-  }
+  const scrollY = window.scrollY;
+  renderAll();
+  window.scrollTo(0, scrollY);
 
   if (status === "seen" && swipedProd) {
     openPostShowSheet({
@@ -1402,6 +1388,30 @@ window.triggerCardDecision = async (slug, status, dir) => {
       stage_director: swipedProd.stage_director || swipedProd.director || "",
       event_date: "",
     });
+  }
+
+  try {
+    const save = await fetch(`/api/productions/${encodeURIComponent(slug)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, person_name: state.activePerson }),
+    });
+    if (!save.ok) throw new Error("save");
+    const res = await fetch(`/api/state?person=${encodeURIComponent(state.activePerson)}`);
+    if (!res.ok) throw new Error("state");
+    state.data = await res.json();
+    const y = window.scrollY;
+    const remaining = (state.data.repertoire || []).filter((p) => p.status === "inbox").length;
+    if (state.tab === "swipe" && state.repFilter === "inbox" && remaining === 0) {
+      showToast("Все спектакли разобраны — открываю ваше расписание!");
+      switchTab("week");
+    } else if (state.tab === "swipe") {
+      renderAll();
+      window.scrollTo(0, y);
+    }
+  } catch (_) {
+    showToast("Не сохранилось. Обновляю список");
+    await loadState();
   }
 };
 
@@ -1943,23 +1953,40 @@ window.setLikedAddMode = (mode) => {
   renderAll();
 };
 
+let manualAddBusy = false;
+
 window.submitInlineCreator = async () => {
+  if (manualAddBusy) return;
   const inp = document.getElementById("inlineCreatorName");
   const roleEl = document.getElementById("inlineCreatorRole");
   const name = inp ? inp.value.trim() : "";
   const role = roleEl ? roleEl.value : "Режиссёр";
-  if (!name) return showToast("Впишите режиссёра, хореографа или театр");
-  await fetch("/api/tracked-creators", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      person_name: state.activePerson,
-      name,
-      role,
-      source_note: "Добавлено вручную",
-    }),
-  });
+  if (!name) return showToast("Впишите фамилию");
+  manualAddBusy = true;
+  let res;
+  try {
+    res = await fetch("/api/tracked-creators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        person_name: state.activePerson,
+        name,
+        role,
+        source_note: "Добавлено вручную",
+      }),
+    });
+  } catch (_) {
+    res = null;
+  }
+  manualAddBusy = false;
+  if (!res || !res.ok) {
+    showToast("Не добавилось. Нажмите «Добавить» ещё раз");
+    return;
+  }
+  if (inp) inp.value = "";
   await loadState();
+  const kept = document.getElementById("inlineCreatorName");
+  if (kept) kept.focus();
   showToast(`Отслеживаем: ${name}`);
 };
 
@@ -2015,19 +2042,21 @@ function renderLikedTab() {
       ${
         likedAddMode === "creator"
           ? `
-        <div style="display:flex;gap:6px;align-items:center;">
-          <input id="inlineCreatorName" class="input-field" style="flex:1;padding:9px 12px;font-size:13.5px;" placeholder="Режиссёр, хореограф или театр..." onkeydown="if(event.key==='Enter'){submitInlineCreator();}" />
-          <select id="inlineCreatorRole" class="input-field" style="width:112px;padding:9px 8px;font-size:12.5px;">
-            <option value="Режиссёр">Режиссёр</option>
-            <option value="Хореограф">Хореограф</option>
-            <option value="Театр">Театр</option>
-          </select>
-          <button type="button" class="btn-primary" style="padding:9px 14px;flex-shrink:0;" onclick="submitInlineCreator()">+</button>
-        </div>
+        <form class="manual-add-form" onsubmit="event.preventDefault(); submitInlineCreator();">
+          <input id="inlineCreatorName" class="input-field" enterkeyhint="done" autocomplete="off" autocapitalize="words" placeholder="Фамилия режиссёра, хореографа или театр..." />
+          <div class="manual-add-row">
+            <select id="inlineCreatorRole" class="input-field">
+              <option value="Режиссёр">Режиссёр</option>
+              <option value="Хореограф">Хореограф</option>
+              <option value="Театр">Театр</option>
+            </select>
+            <button type="submit" class="btn-primary" onpointerdown="event.preventDefault(); submitInlineCreator();">Добавить</button>
+          </div>
+        </form>
       `
           : `
-        <div style="display:flex;flex-direction:column;gap:7px;">
-          <select class="input-field" style="padding:9px 11px;font-size:13px;" onchange="prefillInlinePlayFromCatalog(this.value)">
+        <form class="manual-add-form" onsubmit="event.preventDefault(); submitInlinePlay();">
+          <select class="input-field" onchange="prefillInlinePlayFromCatalog(this.value)">
             <option value="">— Выбрать из каталога (или впишите ниже) —</option>
             ${allCatalog
               .map(
@@ -2037,12 +2066,10 @@ function renderLikedTab() {
               .join("")}
           </select>
           <input id="inlinePlaySlug" type="hidden" value="" />
-          <div style="display:flex;gap:6px;">
-            <input id="inlinePlayTitle" class="input-field" style="flex:1;padding:9px 12px;font-size:13.5px;" placeholder="Название спектакля..." />
-            <input id="inlinePlayDirector" class="input-field" style="flex:1;padding:9px 12px;font-size:13.5px;" placeholder="Режиссёр (необяз.)" />
-            <button type="button" class="btn-primary" style="padding:9px 14px;flex-shrink:0;" onclick="submitInlinePlay()">+</button>
-          </div>
-        </div>
+          <input id="inlinePlayTitle" class="input-field" enterkeyhint="done" autocomplete="off" placeholder="Название спектакля..." />
+          <input id="inlinePlayDirector" class="input-field" enterkeyhint="done" autocomplete="off" placeholder="Режиссёр, если знаете" />
+          <button type="submit" class="btn-primary" onpointerdown="event.preventDefault(); submitInlinePlay();">Добавить</button>
+        </form>
       `
       }
     </div>
@@ -2141,26 +2168,35 @@ window.submitInlinePlay = async () => {
   const title = ((document.getElementById("inlinePlayTitle") || {}).value || "").trim();
   const stage_director = ((document.getElementById("inlinePlayDirector") || {}).value || "").trim();
 
-  if (slug) {
-    await fetch("/api/liked/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, liked: true, person_name: state.activePerson }),
-    });
-  } else {
-    if (!title) return showToast("Укажите название спектакля");
-    await fetch("/api/liked/manual", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        stage_director,
-        person_name: state.activePerson,
-      }),
-    });
+  let res;
+  try {
+    if (slug) {
+      res = await fetch("/api/liked/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, liked: true, person_name: state.activePerson }),
+      });
+    } else {
+      if (!title) return showToast("Укажите название спектакля");
+      res = await fetch("/api/liked/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          stage_director,
+          person_name: state.activePerson,
+        }),
+      });
+    }
+  } catch (_) {
+    res = null;
+  }
+  if (!res || !res.ok) {
+    showToast("Не добавилось. Нажмите «Добавить» ещё раз");
+    return;
   }
   await loadState();
-  showToast("♥ Добавлено в «Нравятся»");
+  showToast("Добавлено в «Нравятся»");
 };
 
 const promptedPostShowKeys = new Set();
