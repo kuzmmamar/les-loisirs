@@ -10,13 +10,13 @@
   "lang": "ru",
   "icons": [
     {
-      "src": "/static/apple-touch-icon.png?v=72",
+      "src": "/static/apple-touch-icon.png?v=73",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/static/icon-512.png?v=72",
+      "src": "/static/icon-512.png?v=73",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
