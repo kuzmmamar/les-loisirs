@@ -1165,3 +1165,57 @@ html, body {
   display: block;
 }
 .hidden { display: none !important; }
+
+/* Les Loisirs — iPhone */
+@media (max-width: 480px), (max-height: 480px) and (pointer: coarse) {
+  .phone-shell {
+    max-width: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+  }
+
+  .main-scroll { padding-bottom: 6px; }
+  .main-scroll > :last-child { margin-bottom: 0; }
+
+  .tabbar {
+    position: sticky;
+    inset: auto auto 0;
+    transform: none;
+    max-width: none;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.85fr);
+    padding: 2px 2px max(2px, env(safe-area-inset-bottom, 0px));
+  }
+  .tab-item {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    min-height: 44px;
+    padding: 1px 2px;
+    gap: 2px;
+    font-size: 0.875rem;
+    line-height: 1.15;
+  }
+
+  .feed-swipe-card .card-top-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .card-top-left { overflow-wrap: anywhere; }
+  .card-title { font-size: 1.5rem; line-height: 1.2; }
+  .director-tag { font-size: 0.875rem; line-height: 1.3; }
+  .creator-line { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+  .creator-line, .dates-dd-trigger .dd-main, .input-field, .director-select { font-size: 1rem; }
+  .venue-line { font-size: 1.0625rem; line-height: 1.45; }
+  .feed-swipe-card .venue-line + .venue-line { line-height: 1.45 !important; }
+
+  .feed-swipe-card .dates-dd-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+  }
+  .dates-dd-trigger { min-height: 44px; text-align: left; }
+  .date-price-under { margin-top: 0; font-size: 0.9375rem; }
+  .dates-dd-trigger .dd-sub, .dd-item-date, .dd-item-price { font-size: 0.875rem; }
+  .dates-dd-trigger .dd-away, .date-none-badge, .dd-item-tag { font-size: 0.8125rem; }
+  .feed-swipe-card .dates-dd-menu { left: 0; right: auto; max-width: 100%; }
+  .swipe-hints-bar { flex-wrap: wrap; gap: 3px 8px; }
+}
