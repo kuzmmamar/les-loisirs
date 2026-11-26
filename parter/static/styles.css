@@ -255,28 +255,27 @@ html, body {
   color: var(--gold);
   border-color: rgba(212, 175, 106, 0.5);
 }
+.manual-add-card {
+  margin-bottom: 14px;
+  border-color: rgba(212, 175, 106, 0.38);
+}
+.manual-add-card label {
+  font-size: 13px;
+  font-weight: 700;
+}
 .manual-add-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+  margin-top: 9px;
 }
 .manual-add-form .input-field {
-  width: 100%;
-  padding: 11px 12px;
+  min-height: 44px;
+  margin-top: 0;
   font-size: 16px;
 }
-.manual-add-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-.manual-add-row .input-field,
-.manual-add-row .btn-primary {
-  flex: 1;
-  min-height: 44px;
-}
-.manual-add-form > .btn-primary {
-  width: 100%;
+.manual-add-form .btn-primary {
+  min-width: 44px;
   min-height: 44px;
 }
 .director-select {

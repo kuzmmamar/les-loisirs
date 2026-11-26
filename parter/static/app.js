@@ -1946,50 +1946,6 @@ function renderTicketsTab() {
 }
 
 /* ================= ВКЛАДКА 3: НРАВЯТСЯ (КОГО ОТСЛЕЖИВАТЬ + ЛАЙКНУТЫЕ СПЕКТАКЛИ) ================= */
-let likedAddMode = "creator"; // 'creator' | 'play'
-
-window.setLikedAddMode = (mode) => {
-  likedAddMode = mode === "play" ? "play" : "creator";
-  renderAll();
-};
-
-let manualAddBusy = false;
-
-window.submitInlineCreator = async () => {
-  if (manualAddBusy) return;
-  const inp = document.getElementById("inlineCreatorName");
-  const roleEl = document.getElementById("inlineCreatorRole");
-  const name = inp ? inp.value.trim() : "";
-  const role = roleEl ? roleEl.value : "Режиссёр";
-  if (!name) return showToast("Впишите фамилию");
-  manualAddBusy = true;
-  let res;
-  try {
-    res = await fetch("/api/tracked-creators", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        person_name: state.activePerson,
-        name,
-        role,
-        source_note: "Добавлено вручную",
-      }),
-    });
-  } catch (_) {
-    res = null;
-  }
-  manualAddBusy = false;
-  if (!res || !res.ok) {
-    showToast("Не добавилось. Нажмите «Добавить» ещё раз");
-    return;
-  }
-  if (inp) inp.value = "";
-  await loadState();
-  const kept = document.getElementById("inlineCreatorName");
-  if (kept) kept.focus();
-  showToast(`Отслеживаем: ${name}`);
-};
-
 window.deleteTrackedCreator = async (creatorId) => {
   await fetch(`/api/tracked-creators/${creatorId}`, { method: "DELETE" });
   await loadState();
@@ -2001,7 +1957,6 @@ function renderLikedTab() {
   const creators = likedData.tracked_creators || [];
   const likedPlays = likedData.liked_plays || [];
   const pendingReviews = (state.data.post_show && state.data.post_show.pending) || [];
-  const allCatalog = state.data.repertoire || [];
 
   return `
     ${
@@ -2030,48 +1985,12 @@ function renderLikedTab() {
         : ""
     }
 
-    <div class="card" style="margin-bottom:14px;border-color:rgba(212,175,106,0.38);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;">
-        <span style="font-size:13px;font-weight:700;">Добавить вручную</span>
-        <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:2px;gap:2px;">
-          <button type="button" style="border:none;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;background:${likedAddMode === "creator" ? "var(--gold)" : "transparent"};color:${likedAddMode === "creator" ? "#14110B" : "var(--muted)"};" onclick="setLikedAddMode('creator')">Кого отслеживать</button>
-          <button type="button" style="border:none;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;background:${likedAddMode === "play" ? "var(--gold)" : "transparent"};color:${likedAddMode === "play" ? "#14110B" : "var(--muted)"};" onclick="setLikedAddMode('play')">Спектакль</button>
-        </div>
-      </div>
-
-      ${
-        likedAddMode === "creator"
-          ? `
-        <form class="manual-add-form" onsubmit="event.preventDefault(); submitInlineCreator();">
-          <input id="inlineCreatorName" class="input-field" enterkeyhint="done" autocomplete="off" autocapitalize="words" placeholder="Фамилия режиссёра, хореографа или театр..." />
-          <div class="manual-add-row">
-            <select id="inlineCreatorRole" class="input-field">
-              <option value="Режиссёр">Режиссёр</option>
-              <option value="Хореограф">Хореограф</option>
-              <option value="Театр">Театр</option>
-            </select>
-            <button type="submit" class="btn-primary" onpointerdown="event.preventDefault(); submitInlineCreator();">Добавить</button>
-          </div>
-        </form>
-      `
-          : `
-        <form class="manual-add-form" onsubmit="event.preventDefault(); submitInlinePlay();">
-          <select class="input-field" onchange="prefillInlinePlayFromCatalog(this.value)">
-            <option value="">— Выбрать из каталога (или впишите ниже) —</option>
-            ${allCatalog
-              .map(
-                (p) =>
-                  `<option value="${p.slug}">${p.title} (${p.venue_name} · ${p.stage_director || p.director})</option>`
-              )
-              .join("")}
-          </select>
-          <input id="inlinePlaySlug" type="hidden" value="" />
-          <input id="inlinePlayTitle" class="input-field" enterkeyhint="done" autocomplete="off" placeholder="Название спектакля..." />
-          <input id="inlinePlayDirector" class="input-field" enterkeyhint="done" autocomplete="off" placeholder="Режиссёр, если знаете" />
-          <button type="submit" class="btn-primary" onpointerdown="event.preventDefault(); submitInlinePlay();">Добавить</button>
-        </form>
-      `
-      }
+    <div class="card manual-add-card">
+      <label for="inlinePlayTitle">Добавить вручную</label>
+      <form class="manual-add-form" onsubmit="event.preventDefault(); submitInlinePlay();">
+        <input id="inlinePlayTitle" class="input-field" enterkeyhint="done" autocomplete="off" placeholder="Название спектакля" required />
+        <button type="submit" class="btn-primary">Add</button>
+      </form>
     </div>
 
     <div class="section-head" style="margin-top:2px;">
@@ -2095,7 +2014,7 @@ function renderLikedTab() {
               )
               .join("")}
           </div>`
-        : `<div class="card"><div class="venue-line">Впишите выше режиссёра, хореографа или театр, чтобы отслеживать новые постановки.</div></div>`
+        : `<div class="card"><div class="venue-line">Авторы понравившихся спектаклей появятся здесь автоматически.</div></div>`
     }
 
     <div class="section-head">
@@ -2149,54 +2068,32 @@ function renderLikedTab() {
   `;
 }
 
-window.prefillInlinePlayFromCatalog = (slug) => {
-  const prod = (state.data.repertoire || []).find((p) => p.slug === slug);
-  const slugEl = document.getElementById("inlinePlaySlug");
-  const tEl = document.getElementById("inlinePlayTitle");
-  const dEl = document.getElementById("inlinePlayDirector");
-  if (!prod) {
-    if (slugEl) slugEl.value = "";
-    return;
-  }
-  if (slugEl) slugEl.value = prod.slug;
-  if (tEl) tEl.value = prod.title;
-  if (dEl) dEl.value = prod.stage_director || prod.director || "";
-};
-
 window.submitInlinePlay = async () => {
-  const slug = (document.getElementById("inlinePlaySlug") || {}).value || "";
-  const title = ((document.getElementById("inlinePlayTitle") || {}).value || "").trim();
-  const stage_director = ((document.getElementById("inlinePlayDirector") || {}).value || "").trim();
+  const form = document.querySelector(".manual-add-form");
+  const title = form.querySelector("#inlinePlayTitle").value.trim();
+  const button = form.querySelector('button[type="submit"]');
+  if (button.disabled) return;
+  if (!title) return showToast("Укажите название спектакля");
 
-  let res;
+  button.disabled = true;
   try {
-    if (slug) {
-      res = await fetch("/api/liked/toggle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, liked: true, person_name: state.activePerson }),
-      });
-    } else {
-      if (!title) return showToast("Укажите название спектакля");
-      res = await fetch("/api/liked/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          stage_director,
-          person_name: state.activePerson,
-        }),
-      });
+    const res = await fetch("/api/liked/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, person_name: state.activePerson }),
+    });
+    if (!res.ok) {
+      showToast("Не добавилось. Нажмите Add ещё раз");
+      return;
     }
+    form.reset();
+    await loadState();
+    showToast("Добавлено в «Нравятся»");
   } catch (_) {
-    res = null;
+    showToast("Не удалось обновить список. Проверьте подключение");
+  } finally {
+    button.disabled = false;
   }
-  if (!res || !res.ok) {
-    showToast("Не добавилось. Нажмите «Добавить» ещё раз");
-    return;
-  }
-  await loadState();
-  showToast("Добавлено в «Нравятся»");
 };
 
 const promptedPostShowKeys = new Set();
