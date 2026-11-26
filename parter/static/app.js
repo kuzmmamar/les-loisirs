@@ -14,6 +14,7 @@ const state = {
   repFilter: "inbox",
   directorFilter: "all",
   weekIndex: 0,
+  weekDatePick: {},
   expandedBusyDates: {},
   swipeHistoryByPerson: { А: [], "+1": [] },
   data: null,
@@ -1449,6 +1450,16 @@ function verdictButtons(payload) {
   </div>`;
 }
 
+function formatWhoGoes(raw) {
+  const text = (raw || "").trim();
+  const hasPlus = text.includes("+1") || text.includes("А+1");
+  const hasA = text.replaceAll("А+1", "").replaceAll("+1", "").includes("А");
+  if (hasA && hasPlus) return "А и +1";
+  if (hasPlus) return "+1";
+  if (hasA) return "А";
+  return text;
+}
+
 function renderBookedTicketCard(t) {
   const hasFile = Boolean(t.filename);
   const todayIso = (state.data && state.data.proposals && state.data.proposals.today_iso) || "2026-11-24";
@@ -1488,10 +1499,9 @@ function renderBookedTicketCard(t) {
       </div>
       <h3 class="card-title">${t.title}</h3>
       <div class="venue-line" style="color:#D8E8DF;">${t.venue_name}</div>
-      <div class="venue-line" style="margin-top:5px;color:var(--text);font-weight:600;">${t.seats_info || "Места в бланке"} · Идут: ${t.who_goes}</div>
+      <div class="venue-line" style="margin-top:5px;color:var(--text);font-weight:600;">${t.seats_info || "Места в бланке"} · Идут: ${formatWhoGoes(t.who_goes)}</div>
       ${reviewFooter}
-      <div style="margin-top:10px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
-        <span style="font-size:11px;color:var(--muted);">${t.sender_name ? `Добавил(а): ${t.sender_name}` : ""}</span>
+      <div style="margin-top:10px;display:flex;gap:6px;justify-content:flex-end;align-items:center;">
         <div style="display:flex;gap:6px;">
           ${hasFile ? `<a class="btn-primary" style="background:var(--green);text-decoration:none;padding:8px 12px;font-size:12.5px;" href="/media/tickets/${t.filename}" target="_blank">Открыть билет ↗</a>` : ""}
           <button type="button" class="btn-ghost" style="padding:7px 10px;font-size:12px;" onclick="deleteWalletTicket(${t.id})">✕</button>
@@ -1501,28 +1511,93 @@ function renderBookedTicketCard(t) {
   `;
 }
 
-function renderOfferCard(ev) {
+function offerDateBits(ev) {
+  const away = ev.other_away_label || ((ev.other_away_names || []).length ? `${ev.other_away_names.join(", ")} нет в Мск` : "");
+  return {
+    line: `${ev.weekday}, ${ev.date_human || ev.label || ev.full_date} · ${ev.event_time}`,
+    away,
+    price: fmtPricePerTicket(ev),
+  };
+}
+
+function renderWeekDatePicker(ev, dates) {
+  const list = dates && dates.length ? dates : [ev];
+  const slug = ev.production_slug;
+  const first = offerDateBits(ev);
+  const second = list.find((item) => item.event_id !== ev.event_id) || null;
+  const secondBits = second ? offerDateBits(second) : null;
+  const pinkFrame = Boolean(first.away && secondBits && secondBits.away);
+  const awayLine = pinkFrame ? [...new Set([first.away, secondBits.away])].join(" · ") : "";
+
+  if (!second) {
+    return `
+      <div class="dates-dd-wrap">
+        <button type="button" class="dates-dd-trigger ${first.away ? "away-date" : ""}"
+          onclick="pickWeekOfferDate('${slug}', ${ev.event_id}, event)">
+          <span class="dd-main">${first.line} ›</span>
+          ${first.away ? `<span class="dd-sub">${first.away}</span>` : ""}
+        </button>
+        ${first.price ? `<div class="date-price-under">${first.price}</div>` : ""}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="dates-dd-wrap">
+      <button type="button" class="dates-dd-trigger ${pinkFrame ? "away-date" : ""}"
+        onclick="toggleWeekDates('${slug}', event)">
+        <span class="dd-main">${first.line}</span>
+        <span class="dd-sub">${secondBits.line} ▾</span>
+        ${awayLine ? `<span class="dd-away">${awayLine}</span>` : ""}
+      </button>
+      ${first.price ? `<div class="date-price-under">${first.price}</div>` : ""}
+      <div id="dates-dd-week-${slug}" class="dates-dd-menu hidden">
+        ${list
+          .map((item, i) => {
+            const bits = offerDateBits(item);
+            const chosen = item.event_id === ev.event_id;
+            return `
+              <button type="button" class="dates-dd-item ${i === 0 && item.has_tickets !== false && !bits.away ? "first-avail" : ""} ${bits.away ? "away-opt" : ""}"
+                onclick="pickWeekOfferDate('${slug}', ${item.event_id}, event)">
+                <span>
+                  <span class="dd-item-date">${bits.line}</span>
+                  ${bits.price ? `<span class="dd-item-price">${bits.price}</span>` : ""}
+                </span>
+                <span class="dd-item-tag">${
+                  bits.away
+                    ? bits.away
+                    : item.has_tickets === false
+                    ? "скоро старт"
+                    : chosen || i === 0
+                    ? "ближайшая ›"
+                    : "выбрать ›"
+                }</span>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderOfferCard(ev, dates) {
   const comps = (state.data && state.data.companions) || [];
   const sel = getEventSel(ev);
   const total = ev.est_ticket_price * sel.count;
   const topTarget = (ev.seat_targets && ev.seat_targets[0]) || {};
   const pTicketStr = fmtPricePerTicket(ev);
+  const showDates = dates && dates.length > 1;
 
   return `
-    <article class="card">
-      <div class="when-bar">
-        <div>
-          <span class="when-time">МОЖЕТ БЫТЬ · ${ev.event_time}</span>
-          ${ev.end_time ? `<span class="when-end-sub" style="margin-left:5px;">до ~${ev.end_time}</span>` : ""}
+    <article class="card offer-card">
+      <div class="card-top-grid">
+        <div class="card-top-left">
+          <div class="director-tag">${ev.venue_name}</div>
+          <h3 class="card-title">${ev.title}</h3>
         </div>
-        <div style="text-align:right;">
-          <div class="when-date-str">${ev.weekday_full}, ${ev.full_date}</div>
-          ${pTicketStr ? `<div class="date-price-under">${pTicketStr}</div>` : ""}
-        </div>
+        ${renderWeekDatePicker(ev, showDates ? dates : [ev])}
       </div>
-
-      <div class="director-tag">${ev.venue_name}</div>
-      <h3 class="card-title">${ev.title}</h3>
       <div class="creator-line"><span class="creator-role-lbl">${ev.director_role || (ev.category === "ballet" ? "Хореограф" : "Режиссёр")}:</span> ${ev.stage_director || ev.director}</div>
       ${ev.duration ? `<div class="venue-line" style="margin-top:2px;">${ev.duration}</div>` : ""}
 
@@ -1555,6 +1630,31 @@ function renderWeekTab() {
   if (!weeks.length) return `<div class="card">Нет данных расписания</div>`;
 
   const wk = weeks[Math.min(state.weekIndex, weeks.length - 1)];
+  const offerGroups = new Map();
+  wk.days.forEach((day) => {
+    (day.offers || []).forEach((ev) => {
+      const key = ev.production_slug || String(ev.event_id);
+      if (!offerGroups.has(key)) offerGroups.set(key, []);
+      offerGroups.get(key).push(ev);
+    });
+  });
+  const firstOfferDay = new Map();
+  wk.days.forEach((day) => {
+    if (day.is_past && !(day.booked_tickets || []).length) return;
+    (day.offers || []).forEach((ev) => {
+      const key = ev.production_slug || String(ev.event_id);
+      if (!firstOfferDay.has(key)) firstOfferDay.set(key, day.iso_date);
+    });
+  });
+  const visibleOffersFor = (day) =>
+    (day.offers || [])
+      .filter((ev) => firstOfferDay.get(ev.production_slug || String(ev.event_id)) === day.iso_date)
+      .map((ev) => {
+        const key = ev.production_slug || String(ev.event_id);
+        const dates = offerGroups.get(key) || [ev];
+        const picked = state.weekDatePick[key];
+        return dates.find((item) => item.event_id === picked) || dates[0];
+      });
 
   return `
     ${renderAwayTopBar()}
@@ -1586,7 +1686,7 @@ function renderWeekTab() {
         ${wk.days
           .map((d) => {
             const hasBooked = d.booked_tickets.length > 0;
-            const hasOffers = d.offers.length > 0;
+            const hasOffers = visibleOffersFor(d).length > 0;
             const hasAway = (d.away_items || []).length > 0;
             return `
             <button type="button" class="day-cell ${d.is_past ? "past" : ""} ${hasBooked ? "booked" : hasAway ? "away" : ""} ${hasOffers ? "has-maybe" : ""}"
@@ -1605,8 +1705,8 @@ function renderWeekTab() {
       </div>
 
       <div class="legend-row">
-        <span class="legend-item"><span class="dot-booked"></span> Уже есть (${wk.total_booked})</span>
-        <span class="legend-item"><span class="dot-offer"></span> Может быть (${wk.total_offers})</span>
+        ${wk.total_booked ? `<span class="legend-item"><span class="dot-booked"></span> Уже есть (${wk.total_booked})</span>` : ""}
+        <span class="legend-item"><span class="dot-offer"></span> Может быть (${offerGroups.size})</span>
         <span class="legend-item"><span class="dot-away"></span> Нет в Мск (${wk.total_away || 0})</span>
       </div>
     </div>
@@ -1617,7 +1717,8 @@ function renderWeekTab() {
         const isBusy = d.booked_tickets.length > 0;
         const awayItems = sortAwayAFirst(d.away_items || []);
         const isPrimaryAway = Boolean(d.is_primary_away);
-        const hasMaybe = d.offers.length > 0;
+        const visibleOffers = visibleOffersFor(d);
+        const hasMaybe = visibleOffers.length > 0;
         const showHiddenOffers = Boolean(state.expandedBusyDates[d.iso_date]);
 
         return `
@@ -1660,14 +1761,14 @@ function renderWeekTab() {
             isPrimaryAway
               ? ""
               : !isBusy && hasMaybe
-              ? d.offers.map(renderOfferCard).join("")
+              ? visibleOffers.map((ev) => renderOfferCard(ev, offerGroups.get(ev.production_slug || String(ev.event_id)) || [ev])).join("")
               : isBusy && hasMaybe
               ? `
                 ${
                   showHiddenOffers
-                    ? d.offers.map(renderOfferCard).join("")
+                    ? visibleOffers.map((ev) => renderOfferCard(ev, offerGroups.get(ev.production_slug || String(ev.event_id)) || [ev])).join("")
                     : `<button type="button" class="btn-ghost" style="width:100%;font-size:12px;color:var(--muted);" onclick="toggleBusyDayOffers('${d.iso_date}')">
-                        На этот день может быть ещё ${d.offers.length} вар., но вечер уже занят · Показать
+                        На этот день может быть ещё ${visibleOffers.length} вар., но вечер уже занят · Показать
                       </button>`
                 }
               `
@@ -1849,7 +1950,21 @@ function renderTicketsTab() {
   const pendingOrders = (state.data.orders || []).filter((o) => o.status === "awaiting_bank_push");
   const s = state.data.settings;
 
+  const ticketList = `
+    <div class="section-head" style="margin-top:0;">
+      <h2>Купленные билеты</h2>
+      <span>${wallet.length} шт.</span>
+    </div>
+    ${
+      wallet.length
+        ? wallet.map(renderBookedTicketCard).join("")
+        : `<div class="card"><div class="venue-line">Пока нет добавленных билетов.</div></div>`
+    }
+  `;
+
   return `
+    ${ticketList}
+
     ${renderMailInboxCard(s)}
 
     <div class="upload-drop">
@@ -1906,16 +2021,6 @@ function renderTicketsTab() {
         .join("")}
     `
         : ""
-    }
-
-    <div class="section-head">
-      <h2>Купленные билеты и планы («Уже есть»)</h2>
-      <span>${wallet.length} шт.</span>
-    </div>
-    ${
-      wallet.length
-        ? wallet.map(renderBookedTicketCard).join("")
-        : `<div class="card"><div class="venue-line">Пока нет добавленных билетов.</div></div>`
     }
 
     ${
@@ -2470,6 +2575,21 @@ window.deletePersonRule = async (ruleId) => {
   await fetch(`/api/person-rules/${ruleId}`, { method: "DELETE" });
   await loadState();
   showToast("Исключение убрано");
+};
+
+window.toggleWeekDates = (slug, ev) => {
+  if (ev) ev.stopPropagation();
+  const target = document.getElementById(`dates-dd-week-${slug}`);
+  const wasOpen = target && !target.classList.contains("hidden");
+  document.querySelectorAll(".dates-dd-menu").forEach((el) => el.classList.add("hidden"));
+  if (target && !wasOpen) target.classList.remove("hidden");
+};
+
+window.pickWeekOfferDate = (slug, eventId, ev) => {
+  if (ev) ev.stopPropagation();
+  state.weekDatePick[slug] = eventId;
+  document.querySelectorAll(".dates-dd-menu").forEach((el) => el.classList.add("hidden"));
+  renderAll();
 };
 
 window.changeWeek = (delta) => {
