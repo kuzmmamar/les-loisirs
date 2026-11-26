@@ -758,7 +758,7 @@ async def api_delete_tracked_creator(creator_id: int) -> dict[str, Any]:
 class PostShowReviewPayload(BaseModel):
     item_key: str
     person_name: str = "А"
-    verdict: str  # 'liked' | 'disliked' | 'dismissed'
+    verdict: str  # 'liked' | 'disliked' | 'unclear' | 'dismissed'
     title: str
     venue_name: str = ""
     stage_director: str = ""

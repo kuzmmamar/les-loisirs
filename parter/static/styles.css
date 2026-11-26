@@ -1126,38 +1126,49 @@ html, body {
   box-shadow: 0 8px 28px rgba(0,0,0,0.45); max-width: 90%; text-align: center;
 }
 
-/* Кнопки оценки после спектакля: крупное белое сердце и такой же белый череп с костями */
+/* Кнопки оценки после спектакля: небольшие сердце, череп и «не понятно» */
+.verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
 .verdict-btn {
   display: inline-flex;
-  flex-direction: column;
+  flex: 1 1 auto;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  border-radius: 22px;
-  padding: 14px 12px;
-  font-size: 13.5px;
-  font-weight: 700;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  min-height: 32px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.15;
   color: #FFFFFF;
   cursor: pointer;
-  transition: transform 0.12s ease;
-}
-.verdict-btn.compact-row {
-  flex-direction: row;
-  border-radius: 999px;
-  padding: 8px 13px;
-  gap: 7px;
-  font-size: 12.5px;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
 .verdict-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .verdict-btn.like {
-  background: linear-gradient(145deg, rgba(212, 175, 106, 0.24), rgba(28, 25, 34, 0.96));
-  border: 1.5px solid rgba(212, 175, 106, 0.72);
+  background: rgba(212, 175, 106, 0.16);
+  border: 1px solid rgba(212, 175, 106, 0.55);
 }
 .verdict-btn.dislike {
-  background: rgba(24, 23, 31, 0.96);
-  border: 1.5px solid rgba(245, 239, 230, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.verdict-btn.unclear {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.verdict-emoji {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 .verdict-svg {
   flex-shrink: 0;

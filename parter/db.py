@@ -1330,9 +1330,10 @@ def submit_post_show_review(
     Сохраняет ответ после спектакля:
     - verdict == 'liked'    -> отмечает 'seen' и добавляет спектакль во вкладку «Нравятся»
     - verdict == 'disliked' -> отмечает 'seen' и не добавляет (убирает) из «Нравятся»
+    - verdict == 'unclear'  -> запоминает «не понятно», не трогает «Нравятся»
     - verdict == 'dismissed'-> просто скрывает опросник
     """
-    if verdict not in ("liked", "disliked", "dismissed"):
+    if verdict not in ("liked", "disliked", "unclear", "dismissed"):
         raise ValueError("Некорректная оценка")
     person = "+1" if (person_name or "А").strip() in ("К", "А+1", "+1") else "А"
     now = datetime.now().isoformat(timespec="seconds")

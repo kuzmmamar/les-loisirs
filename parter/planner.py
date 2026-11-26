@@ -116,6 +116,12 @@ def estimate_target_ticket_price(price_min: int, price_max: int) -> int:
     return 8000
 
 
+def _season_end(day: date) -> date:
+    """Театральный сезон: 1 сентября — 31 июля."""
+    year = day.year + 1 if day.month >= 8 else day.year
+    return date(year, 7, 31)
+
+
 def build_weekly_proposals(person_name: str = "А") -> dict[str, Any]:
     person_name = (person_name or "А").strip()
     if person_name in ("К", "А+1", "+1"):
@@ -268,11 +274,14 @@ def build_weekly_proposals(person_name: str = "А") -> dict[str, Any]:
         events_by_date.setdefault(item["event_date"], []).append(enriched)
 
     for iso_k in events_by_date:
-        events_by_date[iso_k].sort(key=lambda x: (-x["taste_score"], x["event_time"]))
+        events_by_date[iso_k].sort(key=lambda x: (x["event_time"], x.get("title") or ""))
 
-    # Собираем 10 последовательных недель (Пн — Вс)
+    # Недели от текущего понедельника до конца театрального сезона (31 июля)
+    horizon_end = _season_end(today)
+    horizon_monday = horizon_end - timedelta(days=horizon_end.weekday())
+    week_count = ((horizon_monday - current_monday).days // 7) + 1
     weeks: list[dict[str, Any]] = []
-    for w_idx in range(10):
+    for w_idx in range(week_count):
         mon = current_monday + timedelta(days=7 * w_idx)
         sun = mon + timedelta(days=6)
 
@@ -460,16 +469,17 @@ def list_repertoire(person_name: str = "А") -> list[dict[str, Any]]:
         d["upcoming_events"] = evs
         result.append(d)
 
-    status_rank = {"inbox": 0, "sniper": 1, "want": 2, "seen": 3, "skip": 4}
-    result.sort(
-        key=lambda x: (
-            status_rank.get(x["status"], 4),
-            -x["taste_score"],
-            -int(x.get("is_high_demand") or 0),
-            x["director"],
-            x["title"],
+    def _nearest_show(item: dict[str, Any]) -> tuple[str, str]:
+        evs = item.get("upcoming_events") or []
+        if not evs:
+            return ("9999-12-31", "99:99")
+        first = min(
+            evs,
+            key=lambda e: (e.get("event_date") or "9999-12-31", e.get("event_time") or "99:99"),
         )
-    )
+        return (first.get("event_date") or "9999-12-31", first.get("event_time") or "99:99")
+
+    result.sort(key=lambda x: (*_nearest_show(x), x.get("title") or ""))
     return result
 
 
@@ -565,7 +575,13 @@ def build_liked_overview(person_name: str = "А") -> dict[str, Any]:
             }
         )
 
-    liked_plays.sort(key=lambda x: (0 if x.get("swiped_right") else 1, x["title"]))
+    liked_plays.sort(
+        key=lambda x: (
+            ((x.get("upcoming_events") or [{}])[0].get("event_date") or "9999-12-31"),
+            ((x.get("upcoming_events") or [{}])[0].get("event_time") or "99:99"),
+            x["title"],
+        )
+    )
     tracked_creators = list_tracked_creators(person_name)
 
     return {

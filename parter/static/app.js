@@ -1433,19 +1433,20 @@ function iconWhiteHeart(size = 38) {
   return `<svg class="verdict-svg" style="width:${size}px;height:${size}px;" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FFFFFF" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
 }
 
-function iconWhiteSkull(size = 38) {
-  return `<svg class="verdict-svg" style="width:${size}px;height:${size}px;" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" d="M3.8 15.7L20.2 21.3M20.2 15.7L3.8 21.3"/>
-    <circle cx="3.4" cy="15.4" r="1.35" fill="#FFFFFF"/>
-    <circle cx="20.6" cy="15.4" r="1.35" fill="#FFFFFF"/>
-    <circle cx="3.4" cy="21.5" r="1.35" fill="#FFFFFF"/>
-    <circle cx="20.6" cy="21.5" r="1.35" fill="#FFFFFF"/>
-    <path fill="#FFFFFF" d="M12 1.7c-3.55 0-6.25 2.52-6.25 5.82 0 2.02 1.02 3.72 2.62 4.65v1.68c0 .72.58 1.3 1.3 1.3h4.66c.72 0 1.3-.58 1.3-1.3v-1.68c1.6-.93 2.62-2.63 2.62-4.65 0-3.3-2.7-5.82-6.25-5.82z"/>
-    <circle cx="9.75" cy="7.45" r="1.45" fill="#16151C"/>
-    <circle cx="14.25" cy="7.45" r="1.45" fill="#16151C"/>
-    <path fill="#16151C" d="M12 8.9l-1.1 1.85h2.2z"/>
-    <path stroke="#16151C" stroke-width="1.15" stroke-linecap="round" d="M10.75 12.65v1.9M13.25 12.65v1.9"/>
-  </svg>`;
+function iconWhiteSkull() {
+  return `<span class="verdict-emoji" aria-hidden="true">☠️</span>`;
+}
+
+function iconUnclear() {
+  return `<span class="verdict-emoji" aria-hidden="true">🤷‍♀️</span>`;
+}
+
+function verdictButtons(payload) {
+  return `<div class="verdict-row">
+    <button type="button" class="verdict-btn like" onclick='submitPostShowReview(${payload}, "liked")'>${iconWhiteHeart(15)} <span>Понравилось</span></button>
+    <button type="button" class="verdict-btn dislike" onclick='submitPostShowReview(${payload}, "disliked")'>${iconWhiteSkull(15)} <span>Не понравилось</span></button>
+    <button type="button" class="verdict-btn unclear" onclick='submitPostShowReview(${payload}, "unclear")'>${iconUnclear()} <span>Не понятно</span></button>
+  </div>`;
 }
 
 function renderBookedTicketCard(t) {
@@ -1461,6 +1462,8 @@ function renderBookedTicketCard(t) {
       reviewFooter = `<div style="margin-top:8px;"><span class="badge verified" style="display:inline-flex;align-items:center;gap:5px;">${iconWhiteHeart(14)} Понравилось · в «Нравятся»</span></div>`;
     } else if (verdict === "disliked") {
       reviewFooter = `<div style="margin-top:8px;"><span class="badge" style="display:inline-flex;align-items:center;gap:5px;">${iconWhiteSkull(14)} Не понравилось</span></div>`;
+    } else if (verdict === "unclear") {
+      reviewFooter = `<div style="margin-top:8px;"><span class="badge" style="display:inline-flex;align-items:center;gap:5px;">${iconUnclear()} Не понятно</span></div>`;
     } else {
       const payload = JSON.stringify({
         item_key: `ticket:${t.id}`,
@@ -1469,12 +1472,9 @@ function renderBookedTicketCard(t) {
         event_date: t.event_date || "",
       }).replace(/'/g, "&#39;");
       reviewFooter = `
-        <div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:12px;font-weight:700;color:var(--gold);">Понравился спектакль?</span>
-          <div style="display:flex;gap:6px;">
-            <button type="button" class="verdict-btn compact-row like" onclick='submitPostShowReview(${payload}, "liked")'>${iconWhiteHeart(22)} Понравилось</button>
-            <button type="button" class="verdict-btn compact-row dislike" onclick='submitPostShowReview(${payload}, "disliked")'>${iconWhiteSkull(22)} Не понравилось</button>
-          </div>
+        <div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.08);">
+          <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px;">Понравился спектакль?</div>
+          ${verdictButtons(payload)}
         </div>
       `;
     }
@@ -1974,10 +1974,7 @@ function renderLikedTab() {
             </div>
             <button type="button" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;" title="Скрыть" onclick='submitPostShowReview(${payload}, "dismissed")'>✕</button>
           </div>
-          <div style="display:flex;gap:10px;margin-top:11px;">
-            <button type="button" class="verdict-btn like" style="flex:1;" onclick='submitPostShowReview(${payload}, "liked")'>${iconWhiteHeart(34)} <span>Понравилось</span></button>
-            <button type="button" class="verdict-btn dislike" style="flex:1;" onclick='submitPostShowReview(${payload}, "disliked")'>${iconWhiteSkull(34)} <span>Не понравилось</span></button>
-          </div>
+          ${verdictButtons(payload)}
         </div>
       `;
             })
@@ -2120,14 +2117,7 @@ window.openPostShowSheet = (rv) => {
     <div class="venue-line" style="margin-bottom:14px;">
       Если нажать «Понравилось», спектакль добавится во вкладку «Нравятся», а агент учтёт его автора для будущих подборок.
     </div>
-    <div style="display:flex;gap:10px;">
-      <button type="button" class="verdict-btn like" style="flex:1;" onclick='submitPostShowReview(${payload}, "liked")'>
-        ${iconWhiteHeart(38)} <span>Понравилось</span>
-      </button>
-      <button type="button" class="verdict-btn dislike" style="flex:1;" onclick='submitPostShowReview(${payload}, "disliked")'>
-        ${iconWhiteSkull(38)} <span>Не понравилось</span>
-      </button>
-    </div>
+    ${verdictButtons(payload)}
   `);
 };
 
@@ -2152,6 +2142,8 @@ window.submitPostShowReview = async (rv, verdict) => {
     showToast("♥ Добавлено в «Нравятся»!");
   } else if (verdict === "disliked") {
     showToast("Запомнили оценку");
+  } else if (verdict === "unclear") {
+    showToast("Отметили: не понятно");
   }
 };
 
